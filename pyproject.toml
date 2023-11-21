@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "astro-delight"
+version = "0.1.0"
+description = ""
+authors = ["Keviinplz <kevin.pinochet@ug.uchile.cl>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+torch = [
+    { version = "2.1.0", source = "pytorch", platform = "!=darwin"},
+    { version = "2.1.0", source = "pypi", platform = "darwin"},
+]
+numpy = "1.26.2"
+ray = {extras = ["tune"], version = "^2.8.0"}
+
+[tool.poetry.group.study.dependencies]
+matplotlib = "3.8.1"
+tensorboard = "2.15.1"
+tqdm = "4.66.1"
+jupyter = "1.0.0"
+ipywidgets = "8.1.1"
+
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.3"
+hypothesis = "^6.88.4"
+
+[[tool.poetry.source]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu118"
+priority = "explicit"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

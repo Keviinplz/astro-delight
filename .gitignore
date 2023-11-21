@@ -1,0 +1,8 @@
+.vscode
+.hypothesis
+.pytest*
+**/__pycache__/*
+runs/**
+states/**
+*.ipynb
+.ipynb_checkpoints
