@@ -23,6 +23,7 @@ class HyperParameters(TypedDict):
     nconv3: int | float
     ndense: int | float
     dropout: float
+    epochs: int
 
 
 def _get_value_from_parameter(parameter: int | float, base: int = 2) -> int:
@@ -74,7 +75,7 @@ def train_delight_cnn_model(params: HyperParameters, options: DelightDatasetOpti
 
     # Training
 
-    for epoch in range(start_epoch, 50):
+    for epoch in range(start_epoch, params["epochs"]):
         running_loss = 0.0
         train_loss = 0.0
         for i, (inputs, labels) in enumerate(train_dl):
