@@ -39,23 +39,125 @@ def get_delight_cnn_parameters(
         "nconv3": _get_value_from_parameter(params["nconv3"]),
         "ndense": _get_value_from_parameter(params["ndense"]),
         "levels": options.n_levels,
-        "dropout": _get_value_from_parameter(params["dropout"]),
+        "dropout": params["dropout"],
         "rot": options.rot,
         "flip": options.flip,
     }
 
 
-def train_delight_cnn_model(params: HyperParameters, options: DelightDatasetOptions):
-    batch_size = _get_value_from_parameter(params["batch_size"])
-    lr = _get_value_from_parameter(params["lr"], base=10)
+def _train_one_epoch(
+    *,
+    device: str,
+    train_dl: DataLoader[tuple[torch.Tensor, torch.Tensor]],
+    batch_size: int,
+    optimizer: torch.optim.Optimizer,
+    model: DelightCnn,
+    criterion: torch.nn.MSELoss,
+):
+    running_loss = 0.0
+    last_loss = 0.0
+    data: tuple[torch.Tensor, torch.Tensor]
+    outputs: torch.Tensor
+    loss: torch.Tensor
 
+    model.train()
+    for i, data in enumerate(train_dl):
+        inputs, labels = data
+        inputs, labels = inputs.to(device), labels.to(device)
+
+        optimizer.zero_grad()
+
+        outputs = model(inputs)
+
+        loss = criterion(outputs, labels)
+        loss.backward()  # type: ignore
+
+        optimizer.step()
+
+        running_loss += loss.item()
+
+        if (i % batch_size) == (batch_size - 1):
+            last_loss = running_loss / batch_size  # loss per batch
+            print(f"batch {i+1} loss: {last_loss}")
+            running_loss = 0.0
+
+    return last_loss
+
+
+def _validate_train(
+    *,
+    device: str,
+    val_dl: DataLoader[tuple[torch.Tensor, torch.Tensor]],
+    model: DelightCnn,
+    criterion: torch.nn.MSELoss,
+):
+    running_loss = 0.0
+    data: tuple[torch.Tensor, torch.Tensor]
+    outputs: torch.Tensor
+    loss: torch.Tensor
+
+    model.eval()
+    with torch.no_grad():
+        for _, data in enumerate(val_dl):
+            inputs, labels = data
+            inputs, labels = inputs.to(device), labels.to(device)
+
+            outputs = model(inputs)
+
+            loss = criterion(outputs, labels)
+            running_loss += loss.item()
+
+    return running_loss / len(val_dl)
+
+
+def _train(
+    *,
+    start_epoch: int,
+    num_epochs: int,
+    batch_size: int,
+    device: str,
+    train_dl: DataLoader[tuple[torch.Tensor, torch.Tensor]],
+    val_dl: DataLoader[tuple[torch.Tensor, torch.Tensor]],
+    optimizer: torch.optim.Optimizer,
+    model: DelightCnn,
+    criterion: torch.nn.MSELoss,
+):
+    model.to(device)
+    for epoch in range(start_epoch, num_epochs):
+        train_loss = _train_one_epoch(
+            device=device,
+            train_dl=train_dl,
+            batch_size=batch_size,
+            optimizer=optimizer,
+            model=model,
+            criterion=criterion,
+        )
+
+        val_loss = _validate_train(
+            device=device, val_dl=val_dl, model=model, criterion=criterion
+        )
+
+        metrics = {"val_loss": val_loss, "train_loss": train_loss}
+        with tempfile.TemporaryDirectory() as tempdir:
+            torch.save(  # type: ignore
+                {
+                    "epoch": epoch,
+                    "net_state_dict": model.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                },
+                os.path.join(tempdir, "checkpoint.pt"),
+            )
+            train.report(metrics=metrics, checkpoint=Checkpoint.from_directory(tempdir))  # type: ignore
+
+
+def train_delight_cnn_model(params: HyperParameters, options: DelightDatasetOptions):
     device = "cpu" if torch.cuda.is_available() is False else "cuda"
-    net = DelightCnn(get_delight_cnn_parameters(params, options))
-    net.train(True)
-    net.to(device)
+    batch_size = _get_value_from_parameter(params["batch_size"])
+    net_options = get_delight_cnn_parameters(params, options)
+    net = DelightCnn(net_options)
 
     criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.Adam(net.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(net.parameters(), lr=params["lr"], weight_decay=1e-4)
     checkpoint = cast(Checkpoint | None, train.get_checkpoint())  # type: ignore
     start_epoch = 0
 
@@ -70,60 +172,31 @@ def train_delight_cnn_model(params: HyperParameters, options: DelightDatasetOpti
     val_dataset = DelightDataset(
         options=options, datatype=DelightDatasetType.VALIDATION
     )
-    train_dl = DataLoader(train_dataset, batch_size=batch_size)
-    val_dl = DataLoader(val_dataset, batch_size=batch_size)
+    train_dl = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_dl = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
 
-    # Training
+    print(
+        "Starting: epochs=%s,batch_size=%s,lr=%s,nconv1=%s,nconv2=%s,nconv3=%s,ndense=%s,dropout=%s"
+        % (
+            params["epochs"],
+            batch_size,
+            params["lr"],
+            net_options["nconv1"],
+            net_options["nconv2"],
+            net_options["nconv3"],
+            net_options["ndense"],
+            net_options["dropout"],
+        )
+    )
 
-    for epoch in range(start_epoch, params["epochs"]):
-        running_loss = 0.0
-        train_loss = 0.0
-        for i, (inputs, labels) in enumerate(train_dl):
-            inputs, labels = inputs.to(device), labels.to(device)
-
-            optimizer.zero_grad()
-
-            outputs = net(inputs)
-
-            loss = criterion(outputs, labels)
-            loss.backward()
-
-            optimizer.step()
-
-            running_loss += float(loss.item())
-
-            if i % batch_size == batch_size - 1:
-                train_loss = running_loss / batch_size
-                print(
-                    "[%d, %5d] loss: %.3f"
-                    % (epoch + 1, i + 1, running_loss / (epoch + 1))
-                )
-                running_loss = 0.0
-
-        # Validation
-
-        val_loss = 0.0
-        with torch.no_grad():
-            for vinputs, vlabels in val_dl:
-                vinputs, vlabels = (
-                    vinputs.to(device),
-                    vlabels.to(device),
-                )
-
-                voutputs = net(vinputs)
-
-                vloss = criterion(voutputs, vlabels)
-                val_loss += vloss.cpu().numpy()
-
-        # Metrics
-        metrics = {"val_loss": val_loss / len(val_dl), "train_loss": train_loss}
-        with tempfile.TemporaryDirectory() as tempdir:
-            torch.save(  # type: ignore
-                {
-                    "epoch": epoch,
-                    "net_state_dict": net.state_dict(),
-                    "optimizer_state_dict": optimizer.state_dict(),
-                },
-                os.path.join(tempdir, "checkpoint.pt"),
-            )
-            train.report(metrics=metrics, checkpoint=Checkpoint.from_directory(tempdir))  # type: ignore
+    _train(
+        start_epoch=start_epoch,
+        num_epochs=params["epochs"],
+        batch_size=batch_size,
+        device=device,
+        train_dl=train_dl,
+        val_dl=val_dl,
+        optimizer=optimizer,
+        model=net,
+        criterion=criterion,
+    )

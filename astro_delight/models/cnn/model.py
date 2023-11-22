@@ -3,67 +3,32 @@ from collections import OrderedDict
 from typing import TypedDict
 
 import torch
-from ray.tune.search.sample import Float
 
 from astro_delight.models.cnn.layers import RotationAndFlipLayer
 
 
 class DelightCnnParameters(TypedDict):
-    nconv1: int | float
-    nconv2: int | float
-    nconv3: int | float
-    ndense: int | float
+    nconv1: int
+    nconv2: int
+    nconv3: int
+    ndense: int
     levels: int
     dropout: float
     rot: bool
     flip: bool
 
-
-class DelightCnnParametersRay(TypedDict):
-    nconv1: Float
-    nconv2: Float
-    nconv3: Float
-    ndense: Float
-    levels: int
-    dropout: Float
-    rot: bool
-    flip: bool
-
-
 class DelightCnn(torch.nn.Module):
     def __init__(self, options: DelightCnnParameters):
         super().__init__()  # type: ignore
-
-        nconv1 = (
-            int(2 ** options["nconv1"])
-            if isinstance(options["nconv1"], float)
-            else options["nconv1"]
-        )
-        nconv2 = (
-            int(2 ** options["nconv2"])
-            if isinstance(options["nconv2"], float)
-            else options["nconv2"]
-        )
-        nconv3 = (
-            int(2 ** options["nconv3"])
-            if isinstance(options["nconv3"], float)
-            else options["nconv3"]
-        )
-        ndense = (
-            int(2 ** options["ndense"])
-            if isinstance(options["ndense"], float)
-            else options["ndense"]
-        )
-
         bottleneck: OrderedDict[str, torch.nn.Module] = OrderedDict(
             [
-                ("conv1", torch.nn.Conv2d(1, nconv1, 3)),
+                ("conv1", torch.nn.Conv2d(1, options["nconv1"], 3)),
                 ("relu1", torch.nn.ReLU()),
                 ("mp1", torch.nn.MaxPool2d(2)),
-                ("conv2", torch.nn.Conv2d(nconv1, nconv2, 3)),
+                ("conv2", torch.nn.Conv2d(options["nconv1"], options["nconv2"], 3)),
                 ("relu2", torch.nn.ReLU()),
                 ("mp2", torch.nn.MaxPool2d(2)),
-                ("conv3", torch.nn.Conv2d(nconv2, nconv3, 3)),
+                ("conv3", torch.nn.Conv2d(options["nconv2"], options["nconv3"], 3)),
                 ("relu3", torch.nn.ReLU()),
                 ("flatten", torch.nn.Flatten()),
             ]
@@ -76,11 +41,13 @@ class DelightCnn(torch.nn.Module):
             [
                 (
                     "fc1",
-                    torch.nn.Linear(in_features=linear_in, out_features=ndense),
+                    torch.nn.Linear(
+                        in_features=linear_in, out_features=options["ndense"]
+                    ),
                 ),
                 ("tanh", torch.nn.Tanh()),
                 ("dropout", torch.nn.Dropout(p=options["dropout"])),
-                ("fc2", torch.nn.Linear(in_features=ndense, out_features=2)),
+                ("fc2", torch.nn.Linear(in_features=options["ndense"], out_features=2)),
             ]
         )
 

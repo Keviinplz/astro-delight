@@ -14,6 +14,7 @@ torch = [
 numpy = "1.26.2"
 ray = {extras = ["tune"], version = "^2.8.0"}
 gputil = "^1.4.0"
+python-telegram-bot = "^20.6"
 
 [tool.poetry.group.study.dependencies]
 matplotlib = "3.8.1"
