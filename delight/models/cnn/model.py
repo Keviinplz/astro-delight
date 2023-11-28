@@ -4,7 +4,7 @@ from typing import TypedDict
 
 import torch
 
-from astro_delight.models.cnn.layers import RotationAndFlipLayer
+from delight.models.cnn.layers import RotationAndFlipLayer
 
 
 class DelightCnnParameters(TypedDict):

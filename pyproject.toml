@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "astro-delight"
+name = "delight"
 version = "0.1.0"
 description = ""
 authors = ["Keviinplz <kevin.pinochet@ug.uchile.cl>"]

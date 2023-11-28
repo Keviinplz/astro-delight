@@ -7,8 +7,8 @@ from ray import train
 from ray.train import Checkpoint
 from torch.utils.data import DataLoader
 
-from astro_delight.models.cnn.model import DelightCnn, DelightCnnParameters
-from astro_delight.training.dataset import (
+from delight.models.cnn.model import DelightCnn, DelightCnnParameters
+from delight.training.dataset import (
     DelightDataset,
     DelightDatasetOptions,
     DelightDatasetType,
@@ -121,6 +121,7 @@ def _train(
     optimizer: torch.optim.Optimizer,
     model: DelightCnn,
     criterion: torch.nn.MSELoss,
+    is_ray: bool = False,
 ):
     model.to(device)
     for epoch in range(start_epoch, num_epochs):
@@ -136,6 +137,9 @@ def _train(
         val_loss = _validate_train(
             device=device, val_dl=val_dl, model=model, criterion=criterion
         )
+
+        if is_ray is False:
+            continue
 
         metrics = {"val_loss": val_loss, "train_loss": train_loss}
         with tempfile.TemporaryDirectory() as tempdir:
@@ -199,4 +203,7 @@ def train_delight_cnn_model(params: HyperParameters, options: DelightDatasetOpti
         optimizer=optimizer,
         model=net,
         criterion=criterion,
+        is_ray=checkpoint is not None,
     )
+
+    return net

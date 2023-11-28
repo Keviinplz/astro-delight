@@ -2,7 +2,7 @@ import torch
 from hypothesis import given
 from hypothesis.strategies import booleans, integers
 
-from astro_delight.models.utils.layers import RotationAndFlipLayer
+from delight.models.utils.layers import RotationAndFlipLayer
 
 @given(
     integers(min_value=1, max_value=64),
