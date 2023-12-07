@@ -24,10 +24,10 @@ jupyter = "1.0.0"
 ipywidgets = "8.1.1"
 
 
-
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.3"
 hypothesis = "^6.88.4"
+types-tensorflow = "^2.12.0.10"
 
 [[tool.poetry.source]]
 name = "pytorch"

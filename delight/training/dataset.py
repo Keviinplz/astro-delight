@@ -5,6 +5,7 @@ from typing import Any
 
 import numpy as np
 import torch
+import tensorflow as tf
 from torch.utils.data import Dataset
 
 
@@ -118,3 +119,10 @@ class DelightDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
             levels, width, height = x.shape
             x = x.reshape(levels, 1, width, height)  # asume 1 channel information
         return x, y
+    
+    def to_tf_dataset(self):
+        X: np.ndarray = self.X.numpy().transpose((0, 2, 3, 1)) # type: ignore
+        y: np.ndarray = self.y.numpy() # type: ignore
+
+        return X, y
+    # sgfdsg
