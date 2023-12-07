@@ -7,3 +7,6 @@ states/**
 *.ipynb
 .ipynb_checkpoints
 ray_results_df
+data/**
+
+!benchmarks.ipynb

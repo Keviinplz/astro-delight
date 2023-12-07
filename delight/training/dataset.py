@@ -4,6 +4,8 @@ from enum import Enum
 from typing import Any, cast
 
 import numpy as np
+import tensorflow as tf
+import tensorflow.experimental.numpy as tnp  # type: ignore
 import torch
 from torch.utils.data import Dataset
 
@@ -121,8 +123,8 @@ class DelightDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
             x = x.reshape(levels, 1, width, height)  # asume 1 channel information
         return x, y
 
-    def to_tf_dataset(self):
+    def to_tf_dataset(self) -> tuple[tf.Tensor, tf.Tensor]:
         X = cast(np.ndarray[Any, np.dtype[np.float32]], self.X.numpy())
         y = cast(np.ndarray[Any, np.dtype[np.float32]], self.y.numpy())
 
-        return X.transpose((0, 2, 3, 1)), y
+        return tnp.copy(X.transpose((0, 2, 3, 1))), tnp.copy(y)  # type: ignore
