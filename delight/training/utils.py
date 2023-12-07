@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import TypedDict
+from typing import cast
 
 import torch
 from torch.utils.data import DataLoader
@@ -7,11 +7,12 @@ from torch.utils.tensorboard.writer import SummaryWriter
 from tqdm import tqdm
 
 
-def params_to_string(params: TypedDict) -> str:
+def params_to_string(params: dict[str, object]) -> str:
     name = ""
     for key, value in params.items():
         name += f"{key}_{value}-"
     return name[:-1]
+
 
 def train(
     epochs: int,
@@ -34,14 +35,14 @@ def train(
         model.train(True)
         model.to(device)
         avg_loss = train_one_epoch(
-            dataset=train_dl, 
-            optimizer=optimizer, 
-            model=model, 
-            loss_fn=loss_fn, 
-            batch_size=batch_size, 
-            epoch=epoch, 
-            tb_writer=tb_writer, 
-            device=device
+            dataset=train_dl,
+            optimizer=optimizer,
+            model=model,
+            loss_fn=loss_fn,
+            batch_size=batch_size,
+            epoch=epoch,
+            tb_writer=tb_writer,
+            device=device,
         )
 
         running_vloss = 0.0
@@ -123,9 +124,9 @@ def train_one_epoch(
         optimizer.step()
 
         # Gather data and report
-        running_loss += loss.item()
+        running_loss += cast(float, loss.item())
         if i % batch_size == batch_size - 1:
-            last_loss: float = running_loss / batch_size  # loss per batch
+            last_loss = running_loss / batch_size  # loss per batch
             pbar.set_description("batch {} loss: {}".format(i + 1, last_loss))
             tb_x = epoch * len(dataset) + i + 1
             tb_writer.add_scalar("Loss/train", last_loss, tb_x)  # type:ignore

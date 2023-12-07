@@ -13,7 +13,7 @@ class TelegramNotifier(RayNotifier):
     def notify(self, message: str) -> None:
         async def notify(bot: Bot, message: str, chat_id: int):
             async with bot:
-                await bot.send_message(text=message, parse_mode="MarkDown", chat_id=chat_id)
+                await bot.send_message(text=message, parse_mode="MarkDown", chat_id=chat_id) # type: ignore
 
         try:
             loop = asyncio.get_running_loop()

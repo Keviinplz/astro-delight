@@ -17,6 +17,7 @@ class DelightCnnParameters(TypedDict):
     rot: bool
     flip: bool
 
+
 class DelightCnn(torch.nn.Module):
     def __init__(self, options: DelightCnnParameters):
         super().__init__()  # type: ignore

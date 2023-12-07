@@ -2,7 +2,7 @@ import torch
 from hypothesis import given
 from hypothesis.strategies import booleans, floats, integers
 
-from delight.models.cnn import DelightCnn
+from delight.models.cnn import DelightCnn, DelightCnnParameters
 
 
 @given(
@@ -29,14 +29,16 @@ def test_delight_cnn_initialization(
 ):
     x = torch.rand(batch, levels, 1, 30, 30)
     model = DelightCnn(
-        nconv1=nconv1,
-        nconv2=nconv2,
-        nconv3=nconv3,
-        ndense=ndense,
-        levels=levels,
-        dropout=dropout,
-        rot=rot,
-        flip=flip,
+        DelightCnnParameters(
+            nconv1=nconv1,
+            nconv2=nconv2,
+            nconv3=nconv3,
+            ndense=ndense,
+            levels=levels,
+            dropout=dropout,
+            rot=rot,
+            flip=flip,
+        )
     )
 
     try:

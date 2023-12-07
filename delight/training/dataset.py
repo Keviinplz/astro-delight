@@ -1,11 +1,10 @@
 import os
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import torch
-import tensorflow as tf
 from torch.utils.data import Dataset
 
 
@@ -83,27 +82,29 @@ class DelightDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
     def transform(
         y: np.ndarray[Any, np.dtype[np.float32]], rot: bool, flip: bool
     ) -> torch.Tensor:
+        transformed: tuple[np.ndarray[Any, np.dtype[np.float32]], ...]
+
         if rot is False and flip is False:
             return torch.Tensor(y)
 
+        yflip = cast(np.ndarray[Any, np.dtype[np.float32]], [1, -1] * y)
         if rot is False:
-            yflip = [1, -1] * y
             transformed = (y, yflip)
 
-        elif flip is False:
-            y90 = [-1, 1] * y[:, ::-1]
-            y180 = [-1, 1] * y90[:, ::-1]
-            y270 = [-1, 1] * y180[:, ::-1]
-            transformed = (y, y90, y180, y270)
+        y90 = cast(np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * y[:, ::-1])
+        y180 = cast(np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * y90[:, ::-1])
+        y270 = cast(np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * y180[:, ::-1])
+        yflip90 = cast(np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * yflip[:, ::-1])
+        yflip180 = cast(
+            np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * yflip90[:, ::-1]
+        )
+        yflip270 = cast(
+            np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * yflip180[:, ::-1]
+        )
 
+        if flip is False:
+            transformed = (y, y90, y180, y270)
         else:
-            y90 = [-1, 1] * y[:, ::-1]
-            y180 = [-1, 1] * y90[:, ::-1]
-            y270 = [-1, 1] * y180[:, ::-1]
-            yflip = [1, -1] * y
-            yflip90 = [-1, 1] * yflip[:, ::-1]
-            yflip180 = [-1, 1] * yflip90[:, ::-1]
-            yflip270 = [-1, 1] * yflip180[:, ::-1]
             transformed = (y, y90, y180, y270, yflip, yflip90, yflip180, yflip270)
 
         return torch.Tensor(np.concatenate(transformed, axis=1))
@@ -119,10 +120,9 @@ class DelightDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
             levels, width, height = x.shape
             x = x.reshape(levels, 1, width, height)  # asume 1 channel information
         return x, y
-    
-    def to_tf_dataset(self):
-        X: np.ndarray = self.X.numpy().transpose((0, 2, 3, 1)) # type: ignore
-        y: np.ndarray = self.y.numpy() # type: ignore
 
-        return X, y
-    # sgfdsg
+    def to_tf_dataset(self):
+        X = cast(np.ndarray[Any, np.dtype[np.float32]], self.X.numpy())
+        y = cast(np.ndarray[Any, np.dtype[np.float32]], self.y.numpy())
+
+        return X.transpose((0, 2, 3, 1)), y

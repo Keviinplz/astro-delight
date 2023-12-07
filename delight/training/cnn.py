@@ -8,11 +8,8 @@ from ray.train import Checkpoint
 from torch.utils.data import DataLoader
 
 from delight.models.cnn.model import DelightCnn, DelightCnnParameters
-from delight.training.dataset import (
-    DelightDataset,
-    DelightDatasetOptions,
-    DelightDatasetType,
-)
+from delight.training.dataset import (DelightDataset, DelightDatasetOptions,
+                                      DelightDatasetType)
 
 
 class HyperParameters(TypedDict):

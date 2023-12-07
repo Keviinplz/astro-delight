@@ -20,25 +20,26 @@ class RotationAndFlipLayer(torch.nn.Module):
 
         w_dim = len(x.shape) - 2
         h_dim = len(x.shape) - 1
+        transforms: tuple[torch.Tensor, ...]
 
         if self.rot is False:
-            flipped: torch.Tensor = x.flip(dims=(h_dim,))
+            flipped = x.flip(dims=(h_dim,))
             transforms = (x, flipped)
 
         elif self.flip is False:
-            rot90: torch.Tensor = x.rot90(k=1, dims=(w_dim, h_dim))
-            rot180: torch.Tensor = x.rot90(k=2, dims=(w_dim, h_dim))
-            rot270: torch.Tensor = x.rot90(k=3, dims=(w_dim, h_dim))
+            rot90 = x.rot90(k=1, dims=(w_dim, h_dim))
+            rot180 = x.rot90(k=2, dims=(w_dim, h_dim))
+            rot270 = x.rot90(k=3, dims=(w_dim, h_dim))
             transforms = (x, rot90, rot180, rot270)
 
         else:
-            rot90: torch.Tensor = x.rot90(k=1, dims=(w_dim, h_dim))
-            rot180: torch.Tensor = x.rot90(k=2, dims=(w_dim, h_dim))
-            rot270: torch.Tensor = x.rot90(k=3, dims=(w_dim, h_dim))
-            flipped: torch.Tensor = x.flip(dims=(h_dim,))
-            flipped_rot90: torch.Tensor = flipped.rot90(k=1, dims=(w_dim, h_dim))
-            flipped_rot180: torch.Tensor = flipped.rot90(k=2, dims=(w_dim, h_dim))
-            flipped_rot270: torch.Tensor = flipped.rot90(k=3, dims=(w_dim, h_dim))
+            rot90 = x.rot90(k=1, dims=(w_dim, h_dim))
+            rot180 = x.rot90(k=2, dims=(w_dim, h_dim))
+            rot270 = x.rot90(k=3, dims=(w_dim, h_dim))
+            flipped = x.flip(dims=(h_dim,))
+            flipped_rot90 = flipped.rot90(k=1, dims=(w_dim, h_dim))
+            flipped_rot180 = flipped.rot90(k=2, dims=(w_dim, h_dim))
+            flipped_rot270 = flipped.rot90(k=3, dims=(w_dim, h_dim))
             transforms = (
                 x,
                 rot90,

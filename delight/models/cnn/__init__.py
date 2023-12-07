@@ -1,3 +1,3 @@
-from .model import DelightCnn
+from .model import DelightCnn, DelightCnnParameters
 
-__all__ = ["DelightCnn"]
+__all__ = ["DelightCnn", "DelightCnnParameters"]
