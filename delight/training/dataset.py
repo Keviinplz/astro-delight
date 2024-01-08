@@ -74,6 +74,7 @@ class DelightDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         self.X = torch.Tensor(np.load(os.path.join(options.source, X_path))).permute(
             0, 3, 1, 2
         )
+        self.X_raw = np.load(os.path.join(options.source, X_path))
         self.y = self.transform(
             np.load(os.path.join(options.source, y_path)),
             options.rot,
