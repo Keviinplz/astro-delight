@@ -75,7 +75,6 @@ def _train_one_epoch(
 
         if (i % batch_size) == (batch_size - 1):
             last_loss = running_loss / batch_size  # loss per batch
-            print(f"batch {i+1} loss: {last_loss}")
             running_loss = 0.0
 
     return last_loss
@@ -135,6 +134,7 @@ def _train(
             device=device, val_dl=val_dl, model=model, criterion=criterion
         )
 
+        print(f"[EPOCH {epoch+1}] train loss = {train_loss} | val_loss = {val_loss}")
         if is_ray is False:
             continue
 

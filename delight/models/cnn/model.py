@@ -37,26 +37,14 @@ class DelightCnn(torch.nn.Module):
         linear_in = self._compute_dense_features(
             levels=options["levels"], bottleneck=bottleneck
         )
-
-        fc: OrderedDict[str, torch.nn.Module] = OrderedDict(
-            [
-                (
-                    "fc1",
-                    torch.nn.Linear(
-                        in_features=linear_in, out_features=options["ndense"]
-                    ),
-                ),
-                ("tanh", torch.nn.Tanh()),
-                ("dropout", torch.nn.Dropout(p=options["dropout"])),
-                ("fc2", torch.nn.Linear(in_features=options["ndense"], out_features=2)),
-            ]
-        )
-
+        self.fc1 = torch.nn.Linear(in_features=linear_in, out_features=options["ndense"])
+        self.tanh =  torch.nn.Tanh()
+        self.dropout = torch.nn.Dropout(p=options["dropout"])
+        self.fc2 =  torch.nn.Linear(in_features=options["ndense"], out_features=2)
         self.rot_and_flip = RotationAndFlipLayer(
             rot=options["rot"], flip=options["flip"]
         )
         self.bottleneck = torch.nn.Sequential(bottleneck)
-        self.fc = torch.nn.Sequential(fc)
 
     def _compute_dense_features(
         self,
@@ -94,5 +82,8 @@ class DelightCnn(torch.nn.Module):
         x = x.reshape(batch, self.rot_and_flip.n_transforms, -1)
 
         # Linear
-        x = self.fc(x)
+        x = self.fc1(x)
+        x = self.tanh(x)
+        x = self.dropout(x)
+        x = self.fc2(x)
         return x.reshape(batch, self.rot_and_flip.n_transforms * 2)

@@ -79,6 +79,7 @@ class DelightDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
             options.rot,
             options.flip,
         )
+        self.y_raw = np.load(os.path.join(options.source, y_path))
 
     @staticmethod
     def transform(
