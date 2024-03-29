@@ -11,6 +11,11 @@ torch = [
     { version = "2.1.0", source = "pytorch", platform = "!=darwin"},
     { version = "2.1.0", source = "pypi", platform = "darwin"},
 ]
+torchvision = [
+    { version = "0.16.0", source = "pytorch", platform = "!=darwin"},
+    { version = "0.16.0", source = "pypi", platform = "darwin"},
+]
+
 numpy = "1.26.2"
 ray = {extras = ["tune"], version = "2.8.0"}
 gputil = "1.4.0"
@@ -19,6 +24,7 @@ tensorflow = "2.14.1"
 xarray = "2023.11.0"
 astropy = "6.0.0"
 sep = "1.2.1"
+einops = "^0.7.0"
 
 [tool.poetry.group.study.dependencies]
 matplotlib = "3.8.1"
