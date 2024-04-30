@@ -37,6 +37,7 @@ class DelightCnn(torch.nn.Module):
         linear_in = self._compute_dense_features(
             levels=options["levels"], bottleneck=bottleneck
         )
+        
         self.fc1 = torch.nn.Linear(in_features=linear_in, out_features=options["ndense"])
         self.tanh =  torch.nn.Tanh()
         self.dropout = torch.nn.Dropout(p=options["dropout"])
