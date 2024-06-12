@@ -19,11 +19,11 @@ class DelightCnnParameters(TypedDict):
 
 
 class DelightCnn(torch.nn.Module):
-    def __init__(self, options: DelightCnnParameters):
+    def __init__(self, options: DelightCnnParameters, channels: int = 1):
         super().__init__()  # type: ignore
         bottleneck: OrderedDict[str, torch.nn.Module] = OrderedDict(
             [
-                ("conv1", torch.nn.Conv2d(1, options["nconv1"], 3)),
+                ("conv1", torch.nn.Conv2d(channels, options["nconv1"], 3)),
                 ("relu1", torch.nn.ReLU()),
                 ("mp1", torch.nn.MaxPool2d(2)),
                 ("conv2", torch.nn.Conv2d(options["nconv1"], options["nconv2"], 3)),

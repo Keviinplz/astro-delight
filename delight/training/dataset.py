@@ -1,7 +1,7 @@
 import os
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, cast
+from typing import Any, cast, overload, Literal
 
 import numpy as np
 import tensorflow as tf
@@ -26,45 +26,69 @@ class DelightDatasetOptions:
     rot: bool
     flip: bool
 
-    def get_filenames(self, datatype: DelightDatasetType) -> tuple[str, str]:
-        if datatype == DelightDatasetType.TRAIN:
-            x = "X_train_nlevels%i_fold%i_mask%s_objects%s.npy" % (
-                self.n_levels,
-                self.fold,
-                self.mask,
-                self.object,
-            )
-            y = "y_train_nlevels%i_fold%i_mask%s_objects%s.npy" % (
-                self.n_levels,
-                self.fold,
-                self.mask,
-                self.object,
-            )
-        elif datatype == DelightDatasetType.TEST:
-            x = "X_test_nlevels%i_mask%s_objects%s.npy" % (
+    def __build_filename_from_datatype(self, datatype: DelightDatasetType) -> tuple[str, str, str]:
+        datatype_str = datatype.value.lower()
+
+        if datatype == DelightDatasetType.VALIDATION: datatype_str = "val"
+
+        if datatype == DelightDatasetType.TEST:
+            x = "X_%s_nlevels%i_mask%s_objects%s.npy" % (
+                datatype_str,
                 self.n_levels,
                 self.mask,
                 self.object,
             )
-            y = "y_test_nlevels%i_mask%s_objects%s.npy" % (
-                self.n_levels,
-                self.mask,
-                self.object,
+        
+            y = "y_%s_nlevels%i_mask%s_objects%s.npy" % (
+                    datatype_str,
+                    self.n_levels,
+                    self.mask,
+                    self.object,
+            )
+            oids = "oid_%s_nlevels%i_mask%s_objects%s.npy" % (
+                    datatype_str,
+                    self.n_levels,
+                    self.mask,
+                    self.object,
             )
         else:
-            x = "X_val_nlevels%i_fold%i_mask%s_objects%s.npy" % (
-                self.n_levels,
-                self.fold,
-                self.mask,
-                self.object,
+            x = "X_%s_nlevels%i_fold%i_mask%s_objects%s.npy" % (
+                    datatype_str,
+                    self.n_levels,
+                    self.fold,
+                    self.mask,
+                    self.object,
+                )
+            
+            y = "y_%s_nlevels%i_fold%i_mask%s_objects%s.npy" % (
+                    datatype_str,
+                    self.n_levels,
+                    self.fold,
+                    self.mask,
+                    self.object,
             )
-            y = "y_val_nlevels%i_fold%i_mask%s_objects%s.npy" % (
-                self.n_levels,
-                self.fold,
-                self.mask,
-                self.object,
+            oids = "oid_%s_nlevels%i_fold%i_mask%s_objects%s.npy" % (
+                    datatype_str,
+                    self.n_levels,
+                    self.fold,
+                    self.mask,
+                    self.object,
             )
 
+        return x, y, oids
+    
+    @overload
+    def get_filenames(self, datatype: DelightDatasetType, with_oids: Literal[False] = ...) -> tuple[str, str]: ...
+    
+    @overload
+    def get_filenames(self, datatype: DelightDatasetType, with_oids: Literal[True]) -> tuple[str, str, str]: ...
+
+    def get_filenames(self, datatype: DelightDatasetType, with_oids: bool = False) -> tuple[str, str] | tuple[str, str, str]:
+        x, y, oids = self.__build_filename_from_datatype(datatype)
+
+        if with_oids:
+            return x, y, oids
+        
         return x, y
 
 
