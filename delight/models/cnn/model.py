@@ -88,3 +88,4 @@ class DelightCnn(torch.nn.Module):
         x = self.dropout(x)
         x = self.fc2(x)
         return x.reshape(batch, self.rot_and_flip.n_transforms * 2)
+
