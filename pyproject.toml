@@ -27,6 +27,8 @@ sep = "1.2.1"
 torch-tb-profiler = "^0.4.3"
 astroquery = "^0.4.7"
 einops = "^0.7.0"
+scipy = "^1.13.1"
+scikit-learn = "^1.5.0"
 
 [tool.poetry.group.study.dependencies]
 matplotlib = "3.8.1"
