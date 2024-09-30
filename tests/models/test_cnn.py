@@ -2,7 +2,7 @@ import torch
 from hypothesis import given
 from hypothesis.strategies import booleans, floats, integers
 
-from delight.models.cnn import DelightCnn, DelightCnnParameters
+from models.delightcnn.model import DelightCnn, DelightCnnParameters
 
 
 @given(

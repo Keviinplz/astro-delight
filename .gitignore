@@ -2,12 +2,3 @@
 .hypothesis
 .pytest*
 **/__pycache__/*
-runs/**
-states/**
-*.ipynb
-.ipynb_checkpoints
-ray_results_df
-data/**
-
-!benchmarks.ipynb
-!PaperResultReplication.ipynb

@@ -1,0 +1,25 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+torch = "*"
+numpy = "*"
+tensorflow = "*"
+pandas = "*"
+tqdm = "*"
+astropy = "*"
+astroquery = "*"
+ray = {extras = ["train"], version = "*"}
+
+[dev-packages]
+types-tensorflow = "*"
+scikit-learn = "*"
+ipykernel= "*"
+jupyter = "*"
+notebook = "*"
+
+[requires]
+python_version = "3.12"
+python_full_version = "3.12.3"

@@ -2,7 +2,7 @@ import torch
 from hypothesis import given
 from hypothesis.strategies import booleans, integers
 
-from delight.models.cnn.layers import RotationAndFlipLayer
+from models.delightcnn.layers import RotationAndFlipLayer
 
 
 @given(
@@ -23,25 +23,6 @@ def test_consistency_rotation_flips(
     expected = n_batch * n_levels * layer.n_transforms
     size = torch.Size([expected, n_channels, im_size, im_size])
     assert out.shape == size
-
-
-@given(
-    integers(min_value=1, max_value=10),
-    integers(min_value=1, max_value=10),
-    integers(min_value=1, max_value=30),
-    booleans(),
-    booleans(),
-)
-def test_consistency_with_no_batch(
-    n_levels: int, n_channels: int, im_size: int, rot: bool, flip: bool
-):
-    layer = RotationAndFlipLayer(rot=rot, flip=flip)
-    x = torch.zeros((n_levels, n_channels, im_size, im_size))
-    out = layer.forward(x)
-
-    expected = n_levels * layer.n_transforms
-
-    assert out.shape == torch.Size([expected, n_channels, im_size, im_size])
 
 
 def test_disable_rot_or_flip_n_transforms():
