@@ -39,7 +39,6 @@ class DelightDatasetOptions:
     - source: Absolute path of where `.npy` files are located.
     - n_levels: Selects data with `n_levels` levels.
     - fold: Selects data from `fold` fold.
-    - mask: Flag that choose data masked or not.
     - object: Flag that choose data with objects removed or not.
     - rot: Flag that indicates if a rotation transformation has to be used on the data to generate a data augmentation.
     - flip: Flag that indicates if a flip transformation has to be used on the data to generate a data augmentation.
@@ -49,7 +48,7 @@ class DelightDatasetOptions:
     source: str
     n_levels: int
     fold: int
-    mask: bool
+    mask: bool  # TODO: sacar
     object: bool
     rot: bool
     flip: bool
@@ -127,6 +126,7 @@ class DelightDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         source = options.source
         balance = options.balance
 
+        # TODO: cambiar nombre a id
         oid_train: npt.NDArray[np.str_] = np.load(
             os.path.join(
                 source,
@@ -150,7 +150,8 @@ class DelightDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         if balance is False:
             return X_train, y_train
 
-        # create balanced training set
+        # TODO: desacoplar oid
+
         idxAsiago = np.array(
             [i for i in range(oid_train.shape[0]) if oid_train[i][:2] == "SN"]
         )
@@ -172,7 +173,6 @@ class DelightDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
                     ],
                 ]
             )
-        # shuffle inplace
         np.random.shuffle(idxbal)
 
         oid_train = oid_train[idxbal]
@@ -220,7 +220,6 @@ class DelightDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
             )
         )
 
-        # mask only the validation set (having difficult cases in the training set helps the validation)
         distance = np.sqrt(np.sum(y_val**2, axis=1))
         mask = (distance * pixscale) < 60
         X_val = X_val[mask]
@@ -345,18 +344,24 @@ class DelightDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         Returns:
         - A data augmentation of `y`.
         """
-        transformed: tuple[np.ndarray[Any, np.dtype[np.float32]], ...]
 
         if rot is False and flip is False:
             return torch.Tensor(y)
 
-        yflip = cast(np.ndarray[Any, np.dtype[np.float32]], [1, -1] * y)
         if rot is False:
-            transformed = (y, yflip)
+            yflip = cast(np.ndarray[Any, np.dtype[np.float32]], [1, -1] * y)
+            return torch.Tensor(np.concatenate((y, yflip), axis=1))
+
+        if flip is False:
+            y90 = cast(np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * y[:, ::-1])
+            y180 = cast(np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * y90[:, ::-1])
+            y270 = cast(np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * y180[:, ::-1])
+            return torch.Tensor(np.concatenate((y, y90, y180, y270), axis=1))
 
         y90 = cast(np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * y[:, ::-1])
         y180 = cast(np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * y90[:, ::-1])
         y270 = cast(np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * y180[:, ::-1])
+        yflip = cast(np.ndarray[Any, np.dtype[np.float32]], [1, -1] * y)
         yflip90 = cast(np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * yflip[:, ::-1])
         yflip180 = cast(
             np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * yflip90[:, ::-1]
@@ -365,12 +370,11 @@ class DelightDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
             np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * yflip180[:, ::-1]
         )
 
-        if flip is False:
-            transformed = (y, y90, y180, y270)
-        else:
-            transformed = (y, y90, y180, y270, yflip, yflip90, yflip180, yflip270)
-
-        return torch.Tensor(np.concatenate(transformed, axis=1))
+        return torch.Tensor(
+            np.concatenate(
+                (y, y90, y180, y270, yflip, yflip90, yflip180, yflip270), axis=1
+            )
+        )
 
     @staticmethod
     def derotate(y_pred_numpy: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
@@ -382,6 +386,8 @@ class DelightDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         Returns:
         - A vector of predictions without rotations and flips
         """
+
+        # TODO: Añadir casos cuando `rot=False` o `flip=False`
         return (
             np.dstack(
                 [
