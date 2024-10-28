@@ -126,11 +126,10 @@ class DelightDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         source = options.source
         balance = options.balance
 
-        # TODO: cambiar nombre a id
-        oid_train: npt.NDArray[np.str_] = np.load(
+        id_train: npt.NDArray[np.str_] = np.load(
             os.path.join(
                 source,
-                f"oid_train_nlevels{nlevels}_fold{ifold}_mask{domask}_objects{doobject}.npy",
+                f"id_train_nlevels{nlevels}_fold{ifold}_mask{domask}_objects{doobject}.npy",
             ),
             allow_pickle=True,
         )
@@ -153,10 +152,10 @@ class DelightDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         # TODO: desacoplar oid
 
         idxAsiago = np.array(
-            [i for i in range(oid_train.shape[0]) if oid_train[i][:2] == "SN"]
+            [i for i in range(id_train.shape[0]) if id_train[i][:2] == "SN"]
         )
         idxZTF = np.array(
-            [i for i in range(oid_train.shape[0]) if oid_train[i][:3] == "ZTF"]
+            [i for i in range(id_train.shape[0]) if id_train[i][:3] == "ZTF"]
         )
         nimb = int(idxZTF.shape[0] / idxAsiago.shape[0])
 
@@ -175,7 +174,7 @@ class DelightDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
             )
         np.random.shuffle(idxbal)
 
-        oid_train = oid_train[idxbal]
+        id_train = id_train[idxbal]
         X_train = X_train[idxbal]
         y_train = y_train[idxbal]
 
@@ -200,10 +199,10 @@ class DelightDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         source = options.source
         pixscale = 0.25
 
-        oid_val: npt.NDArray[np.str_] = np.load(
+        id_val: npt.NDArray[np.str_] = np.load(
             os.path.join(
                 source,
-                f"oid_val_nlevels{nlevels}_fold{ifold}_mask{domask}_objects{doobject}.npy",
+                f"id_val_nlevels{nlevels}_fold{ifold}_mask{domask}_objects{doobject}.npy",
             ),
             allow_pickle=True,
         )
@@ -224,7 +223,7 @@ class DelightDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         mask = (distance * pixscale) < 60
         X_val = X_val[mask]
         y_val = y_val[mask]
-        oid_val = oid_val[mask]
+        id_val = id_val[mask]
 
         return X_val, y_val
 
@@ -345,69 +344,83 @@ class DelightDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         - A data augmentation of `y`.
         """
 
+        transforms: tuple[np.ndarray[Any, np.dtype[np.float32]], ...]
+
         if rot is False and flip is False:
             return torch.Tensor(y)
 
         if rot is False:
             yflip = cast(np.ndarray[Any, np.dtype[np.float32]], [1, -1] * y)
-            return torch.Tensor(np.concatenate((y, yflip), axis=1))
+            transforms = (y, yflip)
 
-        if flip is False:
+        elif flip is False:
             y90 = cast(np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * y[:, ::-1])
             y180 = cast(np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * y90[:, ::-1])
             y270 = cast(np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * y180[:, ::-1])
-            return torch.Tensor(np.concatenate((y, y90, y180, y270), axis=1))
+            transforms = (y, y90, y180, y270)
 
-        y90 = cast(np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * y[:, ::-1])
-        y180 = cast(np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * y90[:, ::-1])
-        y270 = cast(np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * y180[:, ::-1])
-        yflip = cast(np.ndarray[Any, np.dtype[np.float32]], [1, -1] * y)
-        yflip90 = cast(np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * yflip[:, ::-1])
-        yflip180 = cast(
-            np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * yflip90[:, ::-1]
-        )
-        yflip270 = cast(
-            np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * yflip180[:, ::-1]
-        )
-
-        return torch.Tensor(
-            np.concatenate(
-                (y, y90, y180, y270, yflip, yflip90, yflip180, yflip270), axis=1
+        else:
+            y90 = cast(np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * y[:, ::-1])
+            y180 = cast(np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * y90[:, ::-1])
+            y270 = cast(np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * y180[:, ::-1])
+            yflip = cast(np.ndarray[Any, np.dtype[np.float32]], [1, -1] * y)
+            yflip90 = cast(
+                np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * yflip[:, ::-1]
             )
-        )
+            yflip180 = cast(
+                np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * yflip90[:, ::-1]
+            )
+            yflip270 = cast(
+                np.ndarray[Any, np.dtype[np.float32]], [-1, 1] * yflip180[:, ::-1]
+            )
+            transforms = (y, y90, y180, y270, yflip, yflip90, yflip180, yflip270)
+
+        return torch.Tensor(np.concatenate(transforms, axis=1))
 
     @staticmethod
-    def derotate(y_pred_numpy: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+    def detransform(
+        y: npt.NDArray[np.float32], rot: bool, flip: bool
+    ) -> npt.NDArray[np.float32]:
         """Transforms the prediction vector removing rotations and flips.
 
         Attributes:
-        - y_pred_numpy: A numpy array of predictions.
+        - y: A numpy array of predictions.
 
         Returns:
         - A vector of predictions without rotations and flips
         """
+        nbatchs = y.shape[0]
+        if rot is False and flip is False:
+            return y.reshape((nbatchs, 1, 2))
 
-        # TODO: Añadir casos cuando `rot=False` o `flip=False`
+        if rot is False:
+            _y = y.reshape((nbatchs, 2, 2))[:, 0]
+            yflip = y.reshape((nbatchs, 2, 2))[:, 1, :] * [1, -1]
+            return np.dstack([_y, yflip]).reshape((nbatchs, 2, 2)).swapaxes(1, 2)
+
+        if flip is False:
+            _y = y.reshape((nbatchs, 4, 2))[:, 0]
+            y90 = y.reshape((nbatchs, 4, 2))[:, 1, ::-1] * [1, -1]
+            y180 = y.reshape((nbatchs, 4, 2))[:, 2, :] * [-1, -1]
+            y270 = y.reshape((nbatchs, 4, 2))[:, 3, ::-1] * [-1, 1]
+            return (
+                np.dstack([_y, y90, y180, y270]).reshape((nbatchs, 2, 4)).swapaxes(1, 2)
+            )
+
         return (
             np.dstack(
                 [
-                    y_pred_numpy.reshape((y_pred_numpy.shape[0], 8, 2))[:, 0],
-                    y_pred_numpy.reshape((y_pred_numpy.shape[0], 8, 2))[:, 1, ::-1]
-                    * [1, -1],
-                    y_pred_numpy.reshape((y_pred_numpy.shape[0], 8, 2))[:, 2, :]
-                    * [-1, -1],
-                    y_pred_numpy.reshape((y_pred_numpy.shape[0], 8, 2))[:, 3, ::-1]
-                    * [-1, 1],
-                    y_pred_numpy.reshape((y_pred_numpy.shape[0], 8, 2))[:, 4, :]
-                    * [1, -1],
-                    y_pred_numpy.reshape((y_pred_numpy.shape[0], 8, 2))[:, 5, ::-1],
-                    y_pred_numpy.reshape((y_pred_numpy.shape[0], 8, 2))[:, 6, :]
-                    * [-1, 1],
-                    y_pred_numpy.reshape((y_pred_numpy.shape[0], 8, 2))[:, 7, ::-1]
-                    * [-1, -1],
+                    y.reshape((nbatchs, 8, 2))[:, 0],
+                    y.reshape((nbatchs, 8, 2))[:, 1, ::-1] * [1, -1],
+                    y.reshape((nbatchs, 8, 2))[:, 2, :] * [-1, -1],
+                    y.reshape((nbatchs, 8, 2))[:, 3, ::-1] * [-1, 1],
+                    y.reshape((nbatchs, 8, 2))[:, 4, :] * [1, -1],
+                    y.reshape((nbatchs, 8, 2))[:, 5, ::-1],
+                    y.reshape((nbatchs, 8, 2))[:, 6, :] * [-1, 1],
+                    y.reshape((nbatchs, 8, 2))[:, 7, ::-1] * [-1, -1],
                 ]
             )
-            .reshape((y_pred_numpy.shape[0], 2, 8))
+            .reshape((nbatchs, 2, 8))
             .swapaxes(1, 2)
         )
 

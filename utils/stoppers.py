@@ -1,14 +1,15 @@
 import logging
+from typing import Protocol
 
 logger = logging.Logger("EarlyStopper")
 
 
-class Stopper:
+class Stopper(Protocol):
     def early_stop(self, validation_loss: float) -> bool:
         raise NotImplementedError
 
 
-class EarlyStopper(Stopper):
+class EarlyStopper:
     def __init__(self, patience: int = 1, min_delta: float = 0.0):
         self.patience = patience
         self.min_delta = min_delta
