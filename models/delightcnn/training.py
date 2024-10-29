@@ -1,60 +1,77 @@
+import logging
 import os
 import tempfile
-from typing import Literal, TypedDict, cast
+from dataclasses import dataclass
+from functools import partial
+from typing import TypedDict
 
+import ray
 import torch
 from ray import train
 from ray.train import Checkpoint
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard.writer import SummaryWriter
 
-from utils.logging import logger
+from models.delightcnn.dataset import DelightDataset, DelightDatasetOptions
+from models.delightcnn.schemas import DelightCnnParameters
 from utils.stoppers import Stopper
 
-from .dataset import (
-    DelightDataset,
-    DelightDatasetOptions,
-    DelightDatasetType,
-)
-from .model import DelightCnn, DelightCnnParameters
+from .model import DelightCnn
+
+logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 
 class HyperParameters(TypedDict):
-    lr: float
-    batch_size: int | float
     nconv1: int | float
     nconv2: int | float
     nconv3: int | float
     ndense: int | float
     dropout: float
+    batch_size: int | float
+
+
+@dataclass
+class TrainingOptions:
+    criterion: torch.nn.Module
+    dataset_options: DelightDatasetOptions
+    optimizer: partial[torch.optim.Optimizer]  # type: ignore
+    train_dataset: DelightDataset
+    val_dataset: DelightDataset
     epochs: int
+    device: torch.device
+
+
+@dataclass
+class _ParsedHyperParameters:
+    nconv1: int
+    nconv2: int
+    nconv3: int
+    ndense: int
+    dropout: float
+    batch_size: int
 
 
 def _get_value_from_parameter(parameter: int | float, base: int = 2) -> int:
     return int(base**parameter) if isinstance(parameter, float) else parameter
 
 
-def get_delight_cnn_parameters(
-    params: HyperParameters, options: DelightDatasetOptions
-) -> DelightCnnParameters:
-    return DelightCnnParameters(
+def parse_ray_param_space(params: HyperParameters) -> _ParsedHyperParameters:
+    return _ParsedHyperParameters(
         nconv1=_get_value_from_parameter(params["nconv1"]),
         nconv2=_get_value_from_parameter(params["nconv2"]),
         nconv3=_get_value_from_parameter(params["nconv3"]),
         ndense=_get_value_from_parameter(params["ndense"]),
-        levels=options.n_levels,
         dropout=params["dropout"],
-        rot=options.rot,
-        flip=options.flip,
+        batch_size=_get_value_from_parameter(params["batch_size"]),
     )
 
 
-def _train_one_epoch(
+def train_one_epoch(
     *,
-    device: str,
-    train_dl: DataLoader[tuple[torch.Tensor, torch.Tensor]],
+    device: torch.device,
+    train_dataloader: DataLoader[tuple[torch.Tensor, torch.Tensor]],
     batch_size: int,
-    optimizer: torch.optim.Adam,  # type: ignore
+    optimizer: torch.optim.Optimizer,  # type: ignore
     model: DelightCnn,
     criterion: torch.nn.Module,
 ):
@@ -65,14 +82,13 @@ def _train_one_epoch(
     loss: torch.Tensor
 
     model.train()
-    for i, data in enumerate(train_dl):
+    for i, data in enumerate(train_dataloader):
         inputs, labels = data
         inputs, labels = inputs.to(device), labels.to(device)
 
         optimizer.zero_grad()
 
         outputs = model(inputs)
-
         loss = criterion(outputs, labels)
         loss.backward()  # type: ignore
 
@@ -87,10 +103,10 @@ def _train_one_epoch(
     return last_loss
 
 
-def _validate_train(
+def validate_train(
     *,
-    device: str,
-    val_dl: DataLoader[tuple[torch.Tensor, torch.Tensor]],
+    device: torch.device,
+    val_dataloader: DataLoader[tuple[torch.Tensor, torch.Tensor]],
     model: DelightCnn,
     criterion: torch.nn.Module,
 ):
@@ -101,7 +117,7 @@ def _validate_train(
 
     model.eval()
     with torch.no_grad():
-        for _, data in enumerate(val_dl):
+        for _, data in enumerate(val_dataloader):
             inputs, labels = data
             inputs, labels = inputs.to(device), labels.to(device)
 
@@ -110,56 +126,58 @@ def _validate_train(
             loss = criterion(outputs, labels)
             running_loss += loss.item()
 
-    return running_loss / len(val_dl)
+    return running_loss / len(val_dataloader)
 
 
-def _train(
-    *,
-    start_epoch: int,
-    num_epochs: int,
-    batch_size: int,
-    device: str,
-    train_dl: DataLoader[tuple[torch.Tensor, torch.Tensor]],
-    val_dl: DataLoader[tuple[torch.Tensor, torch.Tensor]],
-    optimizer: torch.optim.Adam,  # type: ignore
-    model: DelightCnn,
+def execute_train_model(
+    model_parameters: DelightCnnParameters,
     criterion: torch.nn.Module,
-    is_ray: bool,
+    optimizer: partial[torch.optim.Optimizer],  # type: ignore
+    train_dataset: DelightDataset,
+    val_dataset: DelightDataset,
+    epochs: int = 50,
+    batch_size: int = 40,
+    device: torch.device = torch.device("cuda"),
     stopper: Stopper | None = None,
-    writer: SummaryWriter | None = None,
+    writter: SummaryWriter | None = None,
 ):
+    model = DelightCnn(options=model_parameters)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    optimizer_function = optimizer(params=model.parameters())
     model.to(device)
-
-    for epoch in range(start_epoch, num_epochs):
-        train_loss = _train_one_epoch(
+    for epoch in range(epochs):
+        train_loss = train_one_epoch(
             device=device,
-            train_dl=train_dl,
+            train_dataloader=train_dataloader,
             batch_size=batch_size,
-            optimizer=optimizer,
+            optimizer=optimizer_function,
             model=model,
             criterion=criterion,
         )
 
-        val_loss = _validate_train(
-            device=device, val_dl=val_dl, model=model, criterion=criterion
+        val_loss = validate_train(
+            device=device,
+            val_dataloader=val_dataloader,
+            model=model,
+            criterion=criterion,
         )
 
-        logger.info(
+        logging.info(
             f"[EPOCH {epoch+1}] train loss = {train_loss} | val_loss = {val_loss}"
         )
-
         metrics = {"val_loss": val_loss, "train_loss": train_loss}
 
-        if is_ray is False:
-            if writer:
-                writer.add_scalars("[MSE Loss]: Train / Validation", metrics, epoch)  # type: ignore
-        else:
+        if writter is not None:
+            writter.add_scalars("[MSE Loss]: Train / Validation", metrics, epoch)  # type: ignore
+
+        if ray.is_initialized():  # type: ignore
             with tempfile.TemporaryDirectory() as tempdir:
                 torch.save(  # type: ignore
                     {
                         "epoch": epoch,
                         "net_state_dict": model.state_dict(),
-                        "optimizer_state_dict": optimizer.state_dict(),
+                        "optimizer_state_dict": optimizer_function.state_dict(),
                     },
                     os.path.join(tempdir, "checkpoint.pt"),
                 )
@@ -167,80 +185,38 @@ def _train(
                     metrics=metrics,
                     checkpoint=Checkpoint.from_directory(tempdir),  # type: ignore
                 )
+
         if stopper and stopper.early_stop(validation_loss=val_loss):
-            logger.info(f"Stopped due Early Stop condition, last epoch: {epoch}")
+            logging.info(f"Stopped due Early Stop condition, last epoch: {epoch}")
             break
 
-    if writer:
-        writer.close()
+    return model
 
 
-def train_delight_cnn_model(
-    params: HyperParameters,
-    options: DelightDatasetOptions,
-    stopper: Stopper | None = None,
-    environment: Literal["cpu"] | Literal["cuda"] | None = None,
-    writer: SummaryWriter | None = None,
-    production: bool = False,
-) -> DelightCnn:
-    if not environment:
-        device = "cpu" if torch.cuda.is_available() is False else "cuda"
-    else:
-        device = environment
-    batch_size = _get_value_from_parameter(params["batch_size"])
-    net_options = get_delight_cnn_parameters(params, options)
-    net = DelightCnn(net_options)
+def ray_wrapper_training_function(
+    param_space: HyperParameters, training_options: TrainingOptions
+):
+    parsed_parameters = parse_ray_param_space(param_space)
+    dataset_options = training_options.dataset_options
 
-    criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.Adam(net.parameters(), lr=params["lr"], weight_decay=1e-4)  # type: ignore
-    checkpoint = cast(Checkpoint | None, train.get_checkpoint())  # type: ignore
-    start_epoch = 0
-
-    if checkpoint:
-        with checkpoint.as_directory() as checkpoint_dir:
-            checkpoint_dict = torch.load(os.path.join(checkpoint_dir, "checkpoint.pt"))  # type: ignore
-            start_epoch = int(checkpoint_dict["epoch"]) + 1
-            net.load_state_dict(checkpoint_dict["net_state_dict"])
-            optimizer.load_state_dict(checkpoint_dict["optimizer_state_dict"])
-
-    train_dtype = DelightDatasetType.P_TRAIN if production else DelightDatasetType.TRAIN
-    val_dtype = (
-        DelightDatasetType.P_VAL if production else DelightDatasetType.VALIDATION
+    parameters = DelightCnnParameters(
+        channels=dataset_options.channels,
+        levels=dataset_options.levels,
+        rot=dataset_options.rot,
+        flip=dataset_options.flip,
+        nconv1=parsed_parameters.nconv1,
+        nconv2=parsed_parameters.nconv2,
+        nconv3=parsed_parameters.nconv3,
+        ndense=parsed_parameters.ndense,
+        dropout=parsed_parameters.dropout,
     )
-
-    train_dataset = DelightDataset(options=options, datatype=train_dtype)
-    val_dataset = DelightDataset(options=options, datatype=val_dtype)
-
-    train_dl = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
-    val_dl = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
-
-    logger.info(
-        "Starting: epochs=%s,batch_size=%s,lr=%s,nconv1=%s,nconv2=%s,nconv3=%s,ndense=%s,dropout=%s"
-        % (
-            params["epochs"],
-            batch_size,
-            params["lr"],
-            net_options.nconv1,
-            net_options.nconv2,
-            net_options.nconv3,
-            net_options.ndense,
-            net_options.dropout,
-        )
+    return execute_train_model(
+        model_parameters=parameters,
+        criterion=training_options.criterion,
+        optimizer=training_options.optimizer,
+        train_dataset=training_options.train_dataset,
+        val_dataset=training_options.val_dataset,
+        epochs=training_options.epochs,
+        batch_size=parsed_parameters.batch_size,
+        device=training_options.device,
     )
-
-    _train(
-        start_epoch=start_epoch,
-        num_epochs=params["epochs"],
-        batch_size=batch_size,
-        device=device,
-        train_dl=train_dl,
-        val_dl=val_dl,
-        optimizer=optimizer,
-        model=net,
-        criterion=criterion,
-        is_ray=checkpoint is not None,
-        stopper=stopper,
-        writer=writer,
-    )
-
-    return net

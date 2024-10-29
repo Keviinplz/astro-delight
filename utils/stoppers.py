@@ -1,7 +1,7 @@
 import logging
 from typing import Protocol
 
-logger = logging.Logger("EarlyStopper")
+logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 
 class Stopper(Protocol):
@@ -18,13 +18,13 @@ class EarlyStopper:
 
     def early_stop(self, validation_loss: float) -> bool:
         if validation_loss < self.min_validation_loss:
-            logger.info(
+            logging.info(
                 f"Validation loss has been improved from {self.min_validation_loss} -> {validation_loss}"
             )
             self.min_validation_loss = validation_loss
             self.counter = 0
         elif validation_loss > (self.min_validation_loss + self.min_delta):
-            logger.info(
+            logging.info(
                 f"Validation loss is not improving. Best val loss={self.min_validation_loss}"
             )
             self.counter += 1

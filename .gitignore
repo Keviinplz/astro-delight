@@ -2,3 +2,5 @@
 .hypothesis
 .pytest*
 **/__pycache__/*
+**/data/*
+**/runs/*
