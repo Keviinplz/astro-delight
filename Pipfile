@@ -12,6 +12,7 @@ tqdm = "*"
 astropy = "*"
 astroquery = "*"
 ray = {extras = ["train"], version = "*"}
+gdown = "*"
 
 [dev-packages]
 types-tensorflow = "*"
