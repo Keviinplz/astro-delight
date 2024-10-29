@@ -6,23 +6,23 @@ class DelightCnnParameters:
     """Defines DelightCnn parameters.
 
     Attributes:
-    - channels: Nombre of channels expected from the dataset.
     - nconv1: Number of out channels for first convolutional layer.
     - nconv2: Number of out channels for second convolutional layer.
     - nconv3: Number of out channels for third convolutional layer.
     - ndense: Number of out features for first fully-connected layer.
-    - levels: Quantity of levels expected from the dataset.
     - dropout: Probability of dropout. 0 means no dropout.
+    - channels: Number of channels expected from the dataset.
+    - levels: Quantity of levels expected from the dataset.
     - rot: Applies a rotation transformation on the input.
     - flip: Applies a flip transformation on the input.
     """
 
-    channels: int
     nconv1: int
     nconv2: int
     nconv3: int
     ndense: int
-    levels: int
     dropout: float
+    channels: int
+    levels: int
     rot: bool
     flip: bool

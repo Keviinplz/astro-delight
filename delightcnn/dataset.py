@@ -12,12 +12,15 @@ from torch.utils.data import Dataset
 @dataclass
 class DelightDatasetOptions:
     """
-    Defines where to find data and how to transform it.
+    Defines properties about data.
 
     Attributes:
+    - channels: Indicates how many channels (bands) data has.
+    - levels: Indicates how many levels of resolution data has.
     - rot: Flag that indicates if a rotation transformation has to be used on the data to generate a data augmentation.
     - flip: Flag that indicates if a flip transformation has to be used on the data to generate a data augmentation.
     """
+
     channels: int
     levels: int
     rot: bool
@@ -25,6 +28,12 @@ class DelightDatasetOptions:
 
 
 class Processor(Protocol):
+    """Interface for dataset processors.
+
+    A dataset processor defines where and how data has to be processed
+    in order to be used as a Delight `torch.utils.data.Dataset` object.
+    """
+
     @property
     def X(self) -> np.ndarray[Any, np.dtype[np.float32]]: ...
 
@@ -40,7 +49,8 @@ class DelightDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         Initialize an instance of a `torch.utils.data.Dataset` object.
 
         Attributes:
-        - procesor: An Processor object that defines where to get data, and has methods X and y to retrieve processed data.
+        - procesor: An object who follows Processor protocol that defines where to get data,
+                    and has methods X and y to retrieve processed data.
         - options: An object that defines data location and transformations to use.
         """
 
@@ -60,6 +70,7 @@ class DelightDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         y: np.ndarray[Any, np.dtype[np.float32]], rot: bool, flip: bool
     ) -> torch.Tensor:
         """Transforms label vector with rotations and flips.
+
         For each label in `y`, transformation works as follows:
         - If `rot` is enabled, then the label is rotated in 90, 180 and 270 degrees.
         - If `flip` is enabled, then the label is flipped horizontally.

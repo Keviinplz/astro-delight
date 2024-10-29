@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 from concurrent.futures import ProcessPoolExecutor
 from typing import cast
@@ -11,9 +12,9 @@ from astroquery.hips2fits import hips2fits  # type: ignore
 from tqdm import tqdm
 from tqdm.asyncio import tqdm as tqdm_async
 
-from utils.logging import logger
-
 from .schemas import PanstarrsChannel, PanstarrsDownloadResult, PanstarrsImageMetadata
+
+logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 
 class PanstarrsDownloader:

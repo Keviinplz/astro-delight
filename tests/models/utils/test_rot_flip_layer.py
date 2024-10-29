@@ -2,7 +2,7 @@ import torch
 from hypothesis import given
 from hypothesis.strategies import booleans, integers
 
-from models.delightcnn.layers import RotationAndFlipLayer
+from delightcnn.layers import RotationAndFlipLayer
 
 
 @given(

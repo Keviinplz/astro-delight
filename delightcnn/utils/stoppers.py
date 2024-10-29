@@ -5,8 +5,7 @@ logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 
 class Stopper(Protocol):
-    def early_stop(self, validation_loss: float) -> bool:
-        raise NotImplementedError
+    def early_stop(self, validation_loss: float) -> bool: ...
 
 
 class EarlyStopper:

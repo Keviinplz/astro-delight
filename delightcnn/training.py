@@ -12,33 +12,13 @@ from ray.train import Checkpoint
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard.writer import SummaryWriter
 
-from models.delightcnn.dataset import DelightDataset, DelightDatasetOptions
-from models.delightcnn.schemas import DelightCnnParameters
-from utils.stoppers import Stopper
+from delightcnn.dataset import DelightDataset, DelightDatasetOptions
+from delightcnn.schemas import DelightCnnParameters
+from delightcnn.utils.stoppers import Stopper
 
 from .model import DelightCnn
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
-
-
-class HyperParameters(TypedDict):
-    nconv1: int | float
-    nconv2: int | float
-    nconv3: int | float
-    ndense: int | float
-    dropout: float
-    batch_size: int | float
-
-
-@dataclass
-class TrainingOptions:
-    criterion: torch.nn.Module
-    dataset_options: DelightDatasetOptions
-    optimizer: partial[torch.optim.Optimizer]  # type: ignore
-    train_dataset: DelightDataset
-    val_dataset: DelightDataset
-    epochs: int
-    device: torch.device
 
 
 @dataclass
@@ -49,6 +29,30 @@ class _ParsedHyperParameters:
     ndense: int
     dropout: float
     batch_size: int
+
+
+class HyperParameters(TypedDict):
+    """Defines hyperparameters to be used in ray tune engine"""
+
+    nconv1: int | float
+    nconv2: int | float
+    nconv3: int | float
+    ndense: int | float
+    dropout: float
+    batch_size: int | float
+
+
+@dataclass
+class TrainingOptions:
+    """Defines variables to modify in training process"""
+
+    criterion: torch.nn.Module
+    dataset_options: DelightDatasetOptions
+    optimizer: partial[torch.optim.Optimizer]  # type: ignore
+    train_dataset: DelightDataset
+    val_dataset: DelightDataset
+    epochs: int
+    device: torch.device
 
 
 def _get_value_from_parameter(parameter: int | float, base: int = 2) -> int:
